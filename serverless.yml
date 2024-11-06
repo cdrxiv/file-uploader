@@ -1,0 +1,31 @@
+service: cdrxiv-file-uploader-lambda
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-west-2'}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:ListBucket
+          Resource:
+            - arn:aws:s3:::${env:AWS_S3_BUCKET_NAME}
+            - arn:aws:s3:::${env:AWS_S3_BUCKET_NAME}/*
+
+functions:
+  upload:
+    handler: dist/index.handler
+    events:
+      - s3:
+          bucket: ${env:AWS_S3_BUCKET_NAME}
+          event: s3:ObjectCreated:*
+    environment:
+      ZENODO_ACCESS_TOKEN: ${env:ZENODO_ACCESS_TOKEN}
+
+plugins:
+  - serverless-dotenv-plugin

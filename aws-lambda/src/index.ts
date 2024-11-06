@@ -4,15 +4,12 @@ import fetch from 'node-fetch'
 import { Readable } from 'stream'
 import { Deposition } from './types'
 
-// Initialize clients and constants
 const s3Client = new S3Client({})
 const ZENODO_ACCESS_TOKEN = process.env.ZENODO_ACCESS_TOKEN
 const ZENODO_URL = process.env.ZENODO_URL!
-const CHUNK_SIZE = 100 * 1024 * 1024 // 100MB chunks
 const MAX_RETRIES = 3
 const RETRY_DELAY = 5000 // 5 seconds
 
-// Helper function to fetch with retry logic
 async function fetchWithRetry(
   url: string,
   options: any,
@@ -34,69 +31,58 @@ async function fetchWithRetry(
   }
 }
 
-// Function to upload large files to Zenodo in chunks
-async function uploadLargeFileToZenodo(
+async function uploadFileToZenodo(
   deposition: Deposition,
   fileName: string,
-  bucket: string,
-  key: string,
+  fileStream: Readable,
   fileSize: number,
 ): Promise<void> {
   const url = `${deposition.links.bucket}/${encodeURIComponent(fileName)}`
-  let start = 0
 
-  while (start < fileSize) {
-    const end = Math.min(start + CHUNK_SIZE - 1, fileSize - 1)
-    const chunkSize = end - start + 1
+  const response = await fetchWithRetry(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${ZENODO_ACCESS_TOKEN}`,
+      'Content-Type': 'application/octet-stream',
+      'Content-Length': fileSize.toString(),
+    },
+    body: fileStream,
+    timeout: 0, // Disable timeout
+  })
 
-    const { Body } = await s3Client.send(
-      new GetObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Range: `bytes=${start}-${end}`,
-      }),
-    )
+  if (!response.ok) {
+    throw new Error(`Failed to upload file: ${response.statusText}`)
+  }
 
-    if (!(Body instanceof Readable)) {
-      throw new Error('Failed to get file chunk from S3')
-    }
+  // Verify final file size
+  const finalResponse = await fetch(
+    `${url}?${new URLSearchParams({
+      access_token: ZENODO_ACCESS_TOKEN as string,
+    })}`,
+    {
+      method: 'HEAD',
+    },
+  )
 
-    const response = await fetchWithRetry(url, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${ZENODO_ACCESS_TOKEN}`,
-        'Content-Type': 'application/octet-stream',
-        'Content-Length': chunkSize.toString(),
-        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-      },
-      body: Body,
-      timeout: 0,
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to upload file chunk: ${response.statusText}`)
-    }
-
-    start = end + 1
-    console.log(
-      `📤 Uploaded ${start}/${fileSize} bytes (${(
-        (start / fileSize) *
-        100
-      ).toFixed(2)}%)`,
+  if (!finalResponse.ok) {
+    throw new Error(
+      `Failed to verify final file size: ${finalResponse.statusText}`,
     )
   }
-}
 
-// Function to convert a readable stream to a buffer
-async function streamToBuffer(stream: Readable): Promise<Buffer> {
-  const chunks: Uint8Array[] = []
-  for await (const chunk of stream) {
-    chunks.push(chunk)
+  const finalSize = parseInt(
+    finalResponse.headers.get('Content-Length') || '0',
+    10,
+  )
+  if (finalSize !== fileSize) {
+    throw new Error(
+      `Final file size mismatch. Expected: ${fileSize}, Actual: ${finalSize}`,
+    )
   }
-  return Buffer.concat(chunks)
+
+  console.log(`✅ File upload verified. Final size: ${finalSize} bytes`)
 }
 
-// Function to create a new deposition on Zenodo
 async function createDataDeposition(): Promise<Deposition> {
   const res = await fetchWithRetry(`${ZENODO_URL}/api/deposit/depositions`, {
     method: 'POST',
@@ -120,7 +106,6 @@ async function createDataDeposition(): Promise<Deposition> {
   return result as Deposition
 }
 
-// Main Lambda handler function
 export const handler = async (event: S3Event) => {
   const record = event.Records[0]
   const bucketName = record.s3.bucket.name
@@ -155,13 +140,7 @@ export const handler = async (event: S3Event) => {
 
     // Upload file to Zenodo
     console.log('📤 Starting file upload to Zenodo')
-    await uploadLargeFileToZenodo(
-      deposition,
-      fileName,
-      bucketName,
-      objectKey,
-      ContentLength,
-    )
+    await uploadFileToZenodo(deposition, fileName, Body, ContentLength)
 
     console.log(
       `🎉 File ${objectKey} successfully uploaded and published to Zenodo.`,
@@ -174,6 +153,15 @@ export const handler = async (event: S3Event) => {
     }
   } catch (error) {
     console.error('❌ Error processing file:', error)
-    return { statusCode: 500, body: 'Error processing file' }
+    if (error instanceof Error) {
+      console.error('Error details:', error.message)
+      console.error('Stack trace:', error.stack)
+    }
+    return {
+      statusCode: 500,
+      body: `Error processing file: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    }
   }
 }

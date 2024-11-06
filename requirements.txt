@@ -1,2 +1,8 @@
 fastapi
-requests-toolbelt
+mangum
+pydantic>=2.9
+pydantic-settings>=2.0
+aiohttp
+gunicorn
+uvicorn
+python-multipart

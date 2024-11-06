@@ -1,0 +1,54 @@
+app = "cdrxiv-file-uploader"
+kill_signal = "SIGINT"
+kill_timeout = 5
+
+primary_region = "dfw"
+
+
+[build]
+builder = "heroku/builder:24"
+buildpacks = ["heroku/buildpack-python:0.17.0"]
+
+
+[[vm]]
+size = "shared-cpu-2x"
+memory = "4096mb"
+
+
+[env]
+PORT = "8000"
+
+[processes]
+app = "gunicorn -w 1 -k uvicorn.workers.UvicornWorker src.main:app"
+
+[[services]]
+processes = ["app"]
+protocol = "tcp"
+internal_port = 8000
+force_https = true
+auto_stop_machines = true
+auto_start_machines = true
+min_machines_running = 0
+
+[[services.ports]]
+port = 80
+handlers = ["http"]
+
+[[services.ports]]
+port = 443
+handlers = ["tls", "http"]
+[services.concurrency]
+type = "connections"
+
+
+[[services.tcp_checks]]
+interval = "15s"
+timeout = "3s"
+grace_period = "5s"
+restart_limit = 0
+
+[[services.http_checks]]
+path = "/"
+grace_period = "30s"
+interval = "1m"
+timeout = "15s"

@@ -7,8 +7,8 @@ import aiohttp
 from fastapi import Depends, FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.config import Settings, format_bytes, get_settings
-from src.log import get_logger
+from .config import Settings, get_settings
+from .log import get_logger
 
 origins = ['*']
 logger = get_logger()
@@ -76,12 +76,13 @@ async def zenodo(
                 error = await upload_resp.json()
                 logger.error(f'Failed to upload file to Zenodo: {error}')
                 return {'error': error}
-            data = await upload_resp.json()
             logger.info(f'Successfully uploaded {file.filename} to Zenodo.')
 
-    return {
-        'filename': file.filename,
-        'zenodo_id': deposition_data['id'],
-        'html': deposition_data['links']['html'],
-        'file_size': format_bytes(data['size']),
-    }
+        # Step 4: Get the deposition info
+        async with session.get(
+            f"{ZENODO_DEPOSITIONS_URL}/{deposition_data['id']}",
+            headers={'Authorization': f'Bearer {ZENODO_ACCESS_TOKEN}'},
+        ) as resp:
+            deposition_data = await resp.json()
+
+            return deposition_data

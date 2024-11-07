@@ -19,7 +19,7 @@ memory = "16384mb"
 PORT = "8000"
 
 [processes]
-app = "gunicorn -w 2 -k uvicorn.workers.UvicornWorker src.main:app"
+app = "gunicorn -w 2 -k uvicorn.workers.UvicornWorker -t 1000 src.main:app"
 
 [[services]]
 processes = ["app"]

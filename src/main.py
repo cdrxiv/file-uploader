@@ -57,7 +57,7 @@ async def create_deposition(settings: Settings = Depends(get_settings)):
         if not response.status_code not in (200, 201):
             error = response.json()
             logger.error(f'Failed to create deposition: {error}')
-            return HTTPException(status_code=response.status_code, detail=error)
+            raise HTTPException(status_code=response.status_code, detail=error)
         deposition_data = response.json()
         return deposition_data
 
@@ -76,7 +76,7 @@ async def fetch_deposition(
         if response.status_code != 200:
             error = response.json()
             logger.error(f'Failed to fetch deposition: {error}')
-            return HTTPException(status_code=response.status_code, detail=error)
+            raise HTTPException(status_code=response.status_code, detail=error)
         deposition_data = response.json()
         return deposition_data
 
@@ -99,7 +99,7 @@ async def update_deposition(
         if response.status_code != 200:
             error = response.json()
             logger.error(f'Failed to update deposition: {error}')
-            return HTTPException(status_code=response.status_code, detail=error)
+            raise HTTPException(status_code=response.status_code, detail=error)
         deposition_data = response.json()
         return deposition_data
 
@@ -118,7 +118,7 @@ async def create_deposition_version(
         if response.status_code != 201:
             error = response.json()
             logger.error(f'Failed to create new version: {error}')
-            return HTTPException(status_code=response.status_code, detail=error)
+            raise HTTPException(status_code=response.status_code, detail=error)
         deposition_data = response.json()
         return deposition_data
 
@@ -139,7 +139,7 @@ async def upload_file(
             if response.status_code != 200:
                 error = response.json()
                 logger.error(f'Failed to fetch deposition: {error}')
-                return HTTPException(status_code=response.status_code, detail=error)
+                raise HTTPException(status_code=response.status_code, detail=error)
             deposition_data = response.json()
             bucket_url = deposition_data['links']['bucket']
 
@@ -154,7 +154,7 @@ async def upload_file(
             if upload_response.status_code not in (200, 201):
                 error = upload_response.json()
                 logger.error(f'Failed to upload file to Zenodo: {error}')
-                return HTTPException(
+                raise HTTPException(
                     status_code=upload_response.status_code, detail=error
                 )
             logger.info(f'Successfully uploaded {file.filename} to Zenodo.')
@@ -167,4 +167,4 @@ async def upload_file(
 
     except Exception as error:
         logger.error(f'Error uploading file: {traceback.format_exc()}')
-        return HTTPException(status_code=500, detail=str(error))
+        raise HTTPException(status_code=500, detail=str(error))

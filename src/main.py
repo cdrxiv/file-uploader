@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import traceback
 from contextlib import asynccontextmanager
 
 import httpx
@@ -57,7 +56,9 @@ async def create_deposition(settings: Settings = Depends(get_settings)):
         if not response.status_code not in (200, 201):
             error = response.json()
             logger.error(f'Failed to create deposition: {error}')
-            raise HTTPException(status_code=response.status_code, detail=error)
+            raise HTTPException(
+                status_code=response.status_code, detail=error['message']
+            )
         deposition_data = response.json()
         return deposition_data
 
@@ -76,7 +77,9 @@ async def fetch_deposition(
         if response.status_code != 200:
             error = response.json()
             logger.error(f'Failed to fetch deposition: {error}')
-            raise HTTPException(status_code=response.status_code, detail=error)
+            raise HTTPException(
+                status_code=response.status_code, detail=error['message']
+            )
         deposition_data = response.json()
         return deposition_data
 
@@ -99,7 +102,9 @@ async def update_deposition(
         if response.status_code != 200:
             error = response.json()
             logger.error(f'Failed to update deposition: {error}')
-            raise HTTPException(status_code=response.status_code, detail=error)
+            raise HTTPException(
+                status_code=response.status_code, detail=error['message']
+            )
         deposition_data = response.json()
         return deposition_data
 
@@ -118,7 +123,9 @@ async def create_deposition_version(
         if response.status_code != 201:
             error = response.json()
             logger.error(f'Failed to create new version: {error}')
-            raise HTTPException(status_code=response.status_code, detail=error)
+            raise HTTPException(
+                status_code=response.status_code, detail=error['message']
+            )
         deposition_data = response.json()
         return deposition_data
 
@@ -130,41 +137,38 @@ async def upload_file(
     settings: Settings = Depends(get_settings),
 ):
     logger.info(f'Uploading file {file.filename} to deposition {deposition_id}')
-    try:
-        with httpx.Client(timeout=None) as client:
-            response = client.get(
-                f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',
-                headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
+    with httpx.Client(timeout=None) as client:
+        response = client.get(
+            f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',
+            headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
+        )
+        if response.status_code != 200:
+            error = response.json()
+            logger.error(f'Failed to fetch deposition: {error}')
+            raise HTTPException(
+                status_code=response.status_code, detail=error['message']
             )
-            if response.status_code != 200:
-                error = response.json()
-                logger.error(f'Failed to fetch deposition: {error}')
-                raise HTTPException(status_code=response.status_code, detail=error)
-            deposition_data = response.json()
-            bucket_url = deposition_data['links']['bucket']
+        deposition_data = response.json()
+        bucket_url = deposition_data['links']['bucket']
 
-            url = f'{bucket_url}/{file.filename}'
-            file.file.seek(0)
+        url = f'{bucket_url}/{file.filename}'
+        file.file.seek(0)
 
-            upload_response = client.put(
-                url,
-                headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
-                content=file.file,
+        upload_response = client.put(
+            url,
+            headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
+            content=file.file,
+        )
+        if upload_response.status_code not in (200, 201):
+            error = upload_response.json()
+            logger.error(f'Failed to upload file to Zenodo: {error}')
+            raise HTTPException(
+                status_code=upload_response.status_code, detail=error['message']
             )
-            if upload_response.status_code not in (200, 201):
-                error = upload_response.json()
-                logger.error(f'Failed to upload file to Zenodo: {error}')
-                raise HTTPException(
-                    status_code=upload_response.status_code, detail=error
-                )
-            logger.info(f'Successfully uploaded {file.filename} to Zenodo.')
-            resp = client.get(
-                f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',
-                headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
-            )
-            deposition_data = resp.json()
-            return deposition_data
-
-    except Exception as error:
-        logger.error(f'Error uploading file: {traceback.format_exc()}')
-        raise HTTPException(status_code=500, detail=str(error))
+        logger.info(f'Successfully uploaded {file.filename} to Zenodo.')
+        resp = client.get(
+            f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',
+            headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
+        )
+        deposition_data = resp.json()
+        return deposition_data

@@ -132,6 +132,7 @@ async def upload_file(
     file: UploadFile = File(...),
     settings: Settings = Depends(get_settings),
 ):
+    logger.info(f'Uploading file {file.filename} to deposition {deposition_id}')
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(

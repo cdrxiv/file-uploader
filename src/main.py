@@ -131,8 +131,8 @@ async def upload_file(
 ):
     logger.info(f'Uploading file {file.filename} to deposition {deposition_id}')
     try:
-        async with httpx.AsyncClient(timeout=None) as client:
-            response = await client.get(
+        with httpx.Client(timeout=None) as client:
+            response = client.get(
                 f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',
                 headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
             )
@@ -143,13 +143,13 @@ async def upload_file(
             deposition_data = response.json()
             bucket_url = deposition_data['links']['bucket']
 
-            file_content = await file.read()
             url = f'{bucket_url}/{file.filename}'
+            file.file.seek(0)
 
-            upload_response = await client.put(
+            upload_response = client.put(
                 url,
                 headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
-                content=file_content,
+                content=file.file,
             )
             if upload_response.status_code not in (200, 201):
                 error = upload_response.json()
@@ -158,7 +158,7 @@ async def upload_file(
                     status_code=upload_response.status_code, detail=error
                 )
             logger.info(f'Successfully uploaded {file.filename} to Zenodo.')
-            resp = await client.get(
+            resp = client.get(
                 f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',
                 headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
             )

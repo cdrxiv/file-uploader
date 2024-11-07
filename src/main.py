@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import traceback
 from contextlib import asynccontextmanager
 
 import httpx
@@ -165,5 +166,5 @@ async def upload_file(
             return deposition_data
 
     except Exception as error:
-        logger.error(f'Error uploading file: {str(error)}')
+        logger.error(f'Error uploading file: {traceback.format_exc()}')
         return HTTPException(status_code=500, detail=str(error))

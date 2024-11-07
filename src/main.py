@@ -3,10 +3,9 @@ from __future__ import annotations
 import os
 from contextlib import asynccontextmanager
 
-import aiohttp
-from fastapi import Body, Depends, FastAPI, File, UploadFile
+import httpx
+from fastapi import Body, Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
 from .config import Settings, get_settings
 from .log import get_logger
@@ -38,13 +37,12 @@ app.add_middleware(
 @app.get('/zenodo/create-deposition')
 async def create_deposition(settings: Settings = Depends(get_settings)):
     ZENODO_DEPOSITIONS_URL = f'{settings.ZENODO_URL}/api/deposit/depositions'
-    ZENODO_ACCESS_TOKEN = settings.ZENODO_ACCESS_TOKEN
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
+    async with httpx.AsyncClient(timeout=None) as client:
+        response = await client.post(
             ZENODO_DEPOSITIONS_URL,
             headers={
-                'Authorization': f'Bearer {ZENODO_ACCESS_TOKEN}',
+                'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}',
                 'Content-Type': 'application/json',
             },
             json={
@@ -53,13 +51,14 @@ async def create_deposition(settings: Settings = Depends(get_settings)):
                     'communities': [{'identifier': 'cdrxiv'}],
                 },
             },
-        ) as resp:
-            if not resp.ok:
-                error = await resp.json()
-                logger.error(f'Failed to create deposition: {error}')
-                return {'error': error}
-            deposition_data = await resp.json()
-            return deposition_data
+        )
+
+        if not response.status_code not in (200, 201):
+            error = response.json()
+            logger.error(f'Failed to create deposition: {error}')
+            return HTTPException(status_code=response.status_code, detail=error)
+        deposition_data = response.json()
+        return deposition_data
 
 
 @app.get('/zenodo/fetch-deposition')
@@ -67,19 +66,18 @@ async def fetch_deposition(
     deposition_id: int, settings: Settings = Depends(get_settings)
 ):
     ZENODO_DEPOSITIONS_URL = f'{settings.ZENODO_URL}/api/deposit/depositions'
-    ZENODO_ACCESS_TOKEN = settings.ZENODO_ACCESS_TOKEN
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
+    async with httpx.AsyncClient(timeout=None) as client:
+        response = await client.get(
             f'{ZENODO_DEPOSITIONS_URL}/{deposition_id}',
-            headers={'Authorization': f'Bearer {ZENODO_ACCESS_TOKEN}'},
-        ) as resp:
-            if resp.status != 200:
-                error = await resp.json()
-                logger.error(f'Failed to fetch deposition: {error}')
-                return {'error': error}
-            deposition_data = await resp.json()
-            return deposition_data
+            headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
+        )
+        if response.status_code != 200:
+            error = response.json()
+            logger.error(f'Failed to fetch deposition: {error}')
+            return HTTPException(status_code=response.status_code, detail=error)
+        deposition_data = response.json()
+        return deposition_data
 
 
 @app.put('/zenodo/update-deposition')
@@ -89,21 +87,20 @@ async def update_deposition(
     settings: Settings = Depends(get_settings),
 ):
     ZENODO_DEPOSITIONS_URL = f'{settings.ZENODO_URL}/api/deposit/depositions'
-    ZENODO_ACCESS_TOKEN = settings.ZENODO_ACCESS_TOKEN
     logger.info(f'Updating deposition {deposition_id} with params: {params}')
 
-    async with aiohttp.ClientSession() as session:
-        async with session.put(
+    async with httpx.AsyncClient(timeout=None) as client:
+        response = await client.put(
             f'{ZENODO_DEPOSITIONS_URL}/{deposition_id}',
-            headers={'Authorization': f'Bearer {ZENODO_ACCESS_TOKEN}'},
+            headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
             json=params,
-        ) as resp:
-            if resp.status != 200:
-                error = await resp.json()
-                logger.error(f'Failed to update deposition: {error}')
-                return {'error': error}
-            deposition_data = await resp.json()
-            return deposition_data
+        )
+        if response.status_code != 200:
+            error = response.json()
+            logger.error(f'Failed to update deposition: {error}')
+            return HTTPException(status_code=response.status_code, detail=error)
+        deposition_data = response.json()
+        return deposition_data
 
 
 @app.post('/zenodo/create-deposition-version')
@@ -111,19 +108,18 @@ async def create_deposition_version(
     deposition_id: int, settings: Settings = Depends(get_settings)
 ):
     ZENODO_DEPOSITIONS_URL = f'{settings.ZENODO_URL}/api/deposit/depositions'
-    ZENODO_ACCESS_TOKEN = settings.ZENODO_ACCESS_TOKEN
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
+    async with httpx.AsyncClient(timeout=None) as client:
+        response = await client.post(
             f'{ZENODO_DEPOSITIONS_URL}/{deposition_id}/actions/newversion',
-            headers={'Authorization': f'Bearer {ZENODO_ACCESS_TOKEN}'},
-        ) as resp:
-            if resp.status != 201:
-                error = await resp.json()
-                logger.error(f'Failed to create new version: {error}')
-                return {'error': error}
-            deposition_data = await resp.json()
-            return deposition_data
+            headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
+        )
+        if response.status_code != 201:
+            error = response.json()
+            logger.error(f'Failed to create new version: {error}')
+            return HTTPException(status_code=response.status_code, detail=error)
+        deposition_data = response.json()
+        return deposition_data
 
 
 @app.post('/zenodo/upload-file')
@@ -134,37 +130,40 @@ async def upload_file(
 ):
     logger.info(f'Uploading file {file.filename} to deposition {deposition_id}')
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(
+        async with httpx.AsyncClient(timeout=None) as client:
+            response = await client.get(
                 f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',
                 headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
-            ) as resp:
-                if resp.status != 200:
-                    error = await resp.json()
-                    logger.error(f'Failed to fetch deposition: {error}')
-                    return {'error': error}
-                deposition_data = await resp.json()
-                bucket_url = deposition_data['links']['bucket']
+            )
+            if response.status_code != 200:
+                error = response.json()
+                logger.error(f'Failed to fetch deposition: {error}')
+                return HTTPException(status_code=response.status_code, detail=error)
+            deposition_data = response.json()
+            bucket_url = deposition_data['links']['bucket']
 
             file_content = await file.read()
             url = f'{bucket_url}/{file.filename}'
-            async with session.put(
+
+            upload_response = await client.put(
                 url,
                 headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
-                data=file_content,
-            ) as upload_resp:
-                if upload_resp.status not in (200, 201):
-                    error = await upload_resp.json()
-                    logger.error(f'Failed to upload file to Zenodo: {error}')
-                    return {'error': error}
-                logger.info(f'Successfully uploaded {file.filename} to Zenodo.')
-                async with session.get(
-                    f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',
-                    headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
-                ) as resp:
-                    deposition_data = await resp.json()
-                    return deposition_data
+                content=file_content,
+            )
+            if upload_response.status_code not in (200, 201):
+                error = upload_response.json()
+                logger.error(f'Failed to upload file to Zenodo: {error}')
+                return HTTPException(
+                    status_code=upload_response.status_code, detail=error
+                )
+            logger.info(f'Successfully uploaded {file.filename} to Zenodo.')
+            resp = await client.get(
+                f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',
+                headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
+            )
+            deposition_data = resp.json()
+            return deposition_data
 
     except Exception as error:
         logger.error(f'Error uploading file: {str(error)}')
-        return JSONResponse(status_code=500, content={'error': 'Internal server error'})
+        return HTTPException(status_code=500, detail=str(error))

@@ -29,9 +29,9 @@ def check_user(request: Request):
         )
         if response.status_code != 200:
             error = response.json()
-            logger.error(f'Failed to fetch user info: {error} using headers: {headers}')
+            logger.error(f'Failed to fetch user info: {error}')
             raise HTTPException(
-                status_code=response.status_code, detail=error['message']
+                status_code=response.status_code, detail=error['detail']
             )
     return True
 

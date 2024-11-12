@@ -7,7 +7,7 @@ import httpx
 from fastapi import Body, Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from .config import Settings, get_settings
+from .config import Settings, format_bytes, get_settings
 from .log import get_logger
 
 origins = ['*']
@@ -177,7 +177,9 @@ async def upload_file(
     settings: Settings = Depends(get_settings),
     authorized: bool = Depends(check_user),
 ):
-    logger.info(f'Uploading file {file.filename} to deposition {deposition_id}')
+    logger.info(
+        f'Uploading file {file.filename} with size: {format_bytes(file.size)} to deposition {deposition_id}'
+    )
     with httpx.Client(timeout=None) as client:
         response = client.get(
             f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',

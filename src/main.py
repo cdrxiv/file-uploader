@@ -4,7 +4,7 @@ import os
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import Body, Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Body, Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import Settings, get_settings
@@ -12,6 +12,28 @@ from .log import get_logger
 
 origins = ['*']
 logger = get_logger()
+
+
+def check_user(request: Request):
+    if 'Bearer' not in request.headers.get('Authorization', ''):
+        raise HTTPException(status_code=401, detail='Janeway Bearer token is missing')
+
+    settings = get_settings()
+    headers = {'Authorization': request.headers.get('Authorization')}
+
+    # Check if the token is valid by making a request to Janeway
+    with httpx.Client(timeout=None) as client:
+        response = client.get(
+            f'{settings.JANEWAY_URL}/api/user_info/',
+            headers=headers,
+        )
+        if response.status_code != 200:
+            error = response.json()
+            logger.error(f'Failed to fetch user info: {error} using headers: {headers}')
+            raise HTTPException(
+                status_code=response.status_code, detail=error['message']
+            )
+    return True
 
 
 @asynccontextmanager
@@ -35,7 +57,12 @@ app.add_middleware(
 
 
 @app.get('/zenodo/create-deposition')
-async def create_deposition(settings: Settings = Depends(get_settings)):
+async def create_deposition(
+    request: Request,
+    settings: Settings = Depends(get_settings),
+    authorized: bool = Depends(check_user),
+):
+    logger.info('Creating zenodo deposition')
     ZENODO_DEPOSITIONS_URL = f'{settings.ZENODO_URL}/api/deposit/depositions'
 
     async with httpx.AsyncClient(timeout=None) as client:
@@ -53,8 +80,11 @@ async def create_deposition(settings: Settings = Depends(get_settings)):
             },
         )
 
-        if not response.status_code not in (200, 201):
+        if response.status_code not in (200, 201):
             error = response.json()
+            logger.info(
+                f'Found error Status code: {response.status_code} in response: {error}'
+            )
             logger.error(f'Failed to create deposition: {error}')
             raise HTTPException(
                 status_code=response.status_code, detail=error['message']
@@ -65,8 +95,12 @@ async def create_deposition(settings: Settings = Depends(get_settings)):
 
 @app.get('/zenodo/fetch-deposition')
 async def fetch_deposition(
-    deposition_id: int, settings: Settings = Depends(get_settings)
+    request: Request,
+    deposition_id: int,
+    settings: Settings = Depends(get_settings),
+    authorized: bool = Depends(check_user),
 ):
+    logger.info(f'Fetching deposition with deposition_id: {deposition_id}')
     ZENODO_DEPOSITIONS_URL = f'{settings.ZENODO_URL}/api/deposit/depositions'
 
     async with httpx.AsyncClient(timeout=None) as client:
@@ -86,12 +120,14 @@ async def fetch_deposition(
 
 @app.put('/zenodo/update-deposition')
 async def update_deposition(
+    request: Request,
     deposition_id: int,
     params: dict = Body(default=..., example={'metadata': {'title': 'New title'}}),
     settings: Settings = Depends(get_settings),
+    authorized: bool = Depends(check_user),
 ):
-    ZENODO_DEPOSITIONS_URL = f'{settings.ZENODO_URL}/api/deposit/depositions'
     logger.info(f'Updating deposition {deposition_id} with params: {params}')
+    ZENODO_DEPOSITIONS_URL = f'{settings.ZENODO_URL}/api/deposit/depositions'
 
     async with httpx.AsyncClient(timeout=None) as client:
         response = await client.put(
@@ -111,7 +147,10 @@ async def update_deposition(
 
 @app.post('/zenodo/create-deposition-version')
 async def create_deposition_version(
-    deposition_id: int, settings: Settings = Depends(get_settings)
+    request: Request,
+    deposition_id: int,
+    settings: Settings = Depends(get_settings),
+    authorized: bool = Depends(check_user),
 ):
     ZENODO_DEPOSITIONS_URL = f'{settings.ZENODO_URL}/api/deposit/depositions'
 
@@ -132,9 +171,11 @@ async def create_deposition_version(
 
 @app.post('/zenodo/upload-file')
 async def upload_file(
+    request: Request,
     deposition_id: int,
     file: UploadFile = File(...),
     settings: Settings = Depends(get_settings),
+    authorized: bool = Depends(check_user),
 ):
     logger.info(f'Uploading file {file.filename} to deposition {deposition_id}')
     with httpx.Client(timeout=None) as client:

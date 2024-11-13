@@ -17,6 +17,12 @@ memory = "8192mb"
 
 [env]
 PORT = "8000"
+TMPDIR = "/data/tmp"
+
+[mounts]
+source = "cdrxiv_file_uploader"
+destination = "/data"
+
 
 [processes]
 app = "gunicorn -w 2 -k uvicorn.workers.UvicornWorker -t 3600 src.main:app"

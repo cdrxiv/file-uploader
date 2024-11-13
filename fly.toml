@@ -17,14 +17,14 @@ memory = "8192mb"
 
 [env]
 PORT = "8000"
-TMPDIR = "/data/tmp"
+TMPDIR = "/data"
 
 [mounts]
 source = "cdrxiv_file_uploader"
 destination = "/data"
 
-[deploy]
-release_command = "scripts/init.sh"
+# [deploy]
+# release_command = "scripts/init.sh"
 
 
 [processes]

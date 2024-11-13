@@ -48,7 +48,7 @@ grace_period = "5s"
 restart_limit = 0
 
 [[services.http_checks]]
-path = "/"
+path = "/health"
 grace_period = "30s"
 interval = "1m"
 timeout = "15s"

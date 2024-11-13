@@ -56,6 +56,11 @@ app.add_middleware(
 )
 
 
+@app.get('/health')
+async def health_check():
+    return {'status': 'healthy'}
+
+
 @app.get('/zenodo/create-deposition')
 async def create_deposition(
     request: Request,

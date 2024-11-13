@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from contextlib import asynccontextmanager
 
 import httpx
@@ -41,6 +42,11 @@ async def lifespan_event(app: FastAPI):
     logger.info('⏱️ Application startup...')
     worker_num = int(os.environ.get('APP_WORKER_ID', 9999))
     logger.info(f'👷 Worker num: {worker_num}')
+    tmp_dir = tempfile.gettempdir()
+    tmp_dir_env = os.environ.get('TMPDIR', '')
+    logger.info(
+        f'📂 Temp directory: {tmp_dir} | $TMPDIR: {tmp_dir_env} | {tmp_dir.strip() == tmp_dir_env.strip()}'
+    )
     yield
     logger.info('Application shutdown...')
     logger.info('👋 Goodbye!')

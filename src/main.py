@@ -191,6 +191,12 @@ async def upload_file(
     logger.info(
         f'Uploading file {file.filename} with size: {format_bytes(file.size)} to deposition {deposition_id}'
     )
+    if file.size > settings.ZENODO_MAX_FILE_SIZE:
+        logger.error(f'File size exceeds the limit: {settings.ZENODO_MAX_FILE_SIZE}')
+        raise HTTPException(
+            status_code=413,
+            detail=f'File size: {format_bytes(file.size)} exceeds the limit: {format_bytes(settings.ZENODO_MAX_FILE_SIZE)}',
+        )
     with httpx.Client(timeout=None) as client:
         response = client.get(
             f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',

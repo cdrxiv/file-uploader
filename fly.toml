@@ -11,8 +11,8 @@ buildpacks = ["heroku/buildpack-python:0.19.1"]
 
 
 [[vm]]
-size = "performance-1x"
-memory = "8192mb"
+size = "shared-cpu-8x"
+memory = "4096mb"
 
 
 [env]

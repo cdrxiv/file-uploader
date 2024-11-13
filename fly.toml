@@ -23,9 +23,6 @@ TMPDIR = "/data"
 source = "cdrxiv_file_uploader"
 destination = "/data"
 
-# [deploy]
-# release_command = "scripts/init.sh"
-
 
 [processes]
 app = "gunicorn -w 2 -k uvicorn.workers.UvicornWorker -t 3600 src.main:app"

@@ -4,9 +4,10 @@ import typing
 import httpx
 import pydantic
 import pydantic.generics
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 
+from .common import check_user
 from .config import Settings, get_settings
 from .log import get_logger
 
@@ -254,4 +255,45 @@ async def get_pdf(
         raise HTTPException(status_code=e.response.status_code, detail=str(e))
     except Exception as e:
         logger.error(f'Failed to get pdf: {traceback.format_exc()}')
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post('/janeway/create-preprint-file')
+async def create_preprint_file(
+    request: Request,
+    file: UploadFile = File(...),
+    preprint: int = Form(...),
+    mime_type: str = Form(...),
+    original_filename: str = Form(...),
+    settings: Settings = Depends(get_settings),
+    authorized: bool = Depends(check_user),
+):
+    try:
+        headers = {'Authorization': request.headers.get('Authorization')}
+        logger.info('🚀 Creating preprint file')
+        async with httpx.AsyncClient(timeout=None) as client:
+            # Prepare the data and files for the request
+            data = {
+                'preprint': str(preprint),
+                'mime_type': mime_type,
+                'original_filename': original_filename,
+            }
+            files = {'file': (file.filename, file.file, file.content_type)}
+            response = await client.post(
+                f'{settings.JANEWAY_URL}/api/preprint_files/',
+                headers=headers,
+                data=data,
+                files=files,
+            )
+            if response.status_code not in (200, 201):
+                error = response.json()
+                logger.error(f'Failed to create preprint file: {error}')
+                raise HTTPException(status_code=response.status_code, detail=error)
+            preprint_file_data = response.json()
+            return preprint_file_data
+    except HTTPException as e:
+        logger.error(f'Failed to create preprint file: {traceback.format_exc()}')
+        raise e
+    except Exception as e:
+        logger.error(f'Failed to create preprint file: {traceback.format_exc()}')
         raise HTTPException(status_code=500, detail=str(e))

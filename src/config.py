@@ -43,8 +43,8 @@ class Settings(pydantic_settings.BaseSettings):
     )
     ZENODO_URL: str | None
     ZENODO_ACCESS_TOKEN: str | None
-    JANEWAY_URL: str = 'https://janeway.cdrxiv.org'
     ZENODO_MAX_FILE_SIZE: int = 15 * 1024 * 1024 * 1024
+    JANEWAY_URL: str = 'https://janeway.cdrxiv.org'
 
 
 def get_settings() -> Settings:

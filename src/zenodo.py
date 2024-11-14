@@ -1,4 +1,5 @@
 import httpx
+import pydantic
 from fastapi import APIRouter, Body, Depends, File, HTTPException, Request, UploadFile
 
 from .common import check_user
@@ -7,6 +8,64 @@ from .log import get_logger
 
 logger = get_logger()
 router = APIRouter()
+
+
+class Creator(pydantic.BaseModel):
+    name: str
+    affiliation: str | None = None
+    orcid: str | None = None
+    gnd: str | None = None
+
+
+class RelatedIdentifier(pydantic.BaseModel):
+    identifier: str
+    relation: str
+    resource_type: str | None = None
+
+
+class Subject(pydantic.BaseModel):
+    term: str
+    identifier: str
+
+
+class DepositionFileLinks(pydantic.BaseModel):
+    self: str
+    discard: str
+
+
+class DepositionFile(pydantic.BaseModel):
+    id: str
+    filename: str
+    filesize: int
+    checksum: str
+    links: DepositionFileLinks
+
+
+class Metadata(pydantic.BaseModel):
+    upload_type: str
+    title: str
+    creators: list[Creator]
+    description: str
+    doi: str | None = None
+    keywords: list[str] | None = None
+    related_identifiers: list[RelatedIdentifier] | None = None
+    communities: list[dict]
+    subjects: list[Subject] | None = None
+    license: str
+
+
+class DepositionLInks(pydantic.BaseModel):
+    self: str
+    newversion: str
+
+
+class Deposition(pydantic.BaseModel):
+    created: str
+    id: int
+    metadata: Metadata | None = None
+    files: list[DepositionFile]
+    links: DepositionLInks
+    submitted: bool
 
 
 @router.get('/zenodo/create-deposition')
@@ -71,7 +130,7 @@ async def fetch_deposition(
         return deposition_data
 
 
-@router.put('/zenodo/update-deposition')
+@router.put('/zenodo/update-deposition', response_model=Deposition)
 async def update_deposition(
     request: Request,
     deposition_id: int,
@@ -122,7 +181,7 @@ async def create_deposition_version(
         return deposition_data
 
 
-@router.post('/zenodo/upload-file')
+@router.post('/zenodo/upload-file', response_model=Deposition)
 async def upload_file(
     request: Request,
     deposition_id: int,

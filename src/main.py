@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .janeway import router as janeway_router
 from .log import get_logger
 from .zenodo import router as zenodo_router
 
@@ -39,6 +40,7 @@ def create_application() -> FastAPI:
         allow_headers=['*'],
     )
     app.include_router(zenodo_router, tags=['zenodo'])
+    app.include_router(janeway_router, tags=['janeway'])
     return app
 
 

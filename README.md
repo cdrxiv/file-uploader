@@ -1,13 +1,13 @@
 <p align='left'>
-  <a href='https://carbonplan.org/#gh-light-mode-only'>
+  <a href='https://cdrxiv.org/'>
     <img
-      src='https://carbonplan-assets.s3.amazonaws.com/monogram/dark-small.png'
+      src='https://avatars.githubusercontent.com/u/169473259?s=400&u=71ee6cf9499fb57b602af2c8467ad9a8f98a1042&v=4'
       height='48px'
     />
   </a>
-  <a href='https://carbonplan.org/#gh-dark-mode-only'>
+  <a href='https://cdrxiv.org/'>
     <img
-      src='https://carbonplan-assets.s3.amazonaws.com/monogram/light-small.png'
+      src='https://avatars.githubusercontent.com/u/169473259?s=400&u=71ee6cf9499fb57b602af2c8467ad9a8f98a1042&v=4'
       height='48px'
     />
   </a>
@@ -16,3 +16,6 @@
 # cdrxiv / file-uploader
 
 [![Fly.io Deployment](https://github.com/cdrxiv/file-uploader/actions/workflows/fly.yml/badge.svg)](https://github.com/cdrxiv/file-uploader/actions/workflows/fly.yml)
+
+- staging instance: [cdrxiv-file-uploader-staging.fly.dev](https://cdrxiv-file-uploader-staging.fly.dev/docs)
+- production instance: [cdrxiv-file-uploader.fly.dev](https://cdrxiv-file-uploader.fly.dev/docs)

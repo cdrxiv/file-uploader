@@ -130,7 +130,7 @@ async def fetch_deposition(
         return deposition_data
 
 
-@router.put('/zenodo/update-deposition', response_model=Deposition)
+@router.put('/zenodo/update-deposition')
 async def update_deposition(
     request: Request,
     deposition_id: int,
@@ -181,7 +181,7 @@ async def create_deposition_version(
         return deposition_data
 
 
-@router.post('/zenodo/upload-file', response_model=Deposition)
+@router.post('/zenodo/upload-file')
 async def upload_file(
     request: Request,
     deposition_id: int,

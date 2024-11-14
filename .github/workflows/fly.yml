@@ -8,7 +8,7 @@ on:
 env:
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
   PRODUCTION_URL: 'https://cdrxiv-file-uploader.fly.dev/docs'
-  STAGING_URL: 'https://cdrxiv-file-uploader.fly.dev/docs'
+  STAGING_URL: 'https://cdrxiv-file-uploader-staging.fly.dev/docs'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -17,6 +17,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy app
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
@@ -24,4 +25,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
-      - run: flyctl deploy --remote-only
+      - name: Deploy to Staging
+        run: |
+          flyctl deploy --remote-only --config fly.staging.toml
+      - name: Deploy to Production
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        run: |
+          flyctl deploy --remote-only --config fly.prod.toml

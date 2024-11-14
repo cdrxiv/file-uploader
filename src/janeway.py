@@ -33,7 +33,7 @@ class Preprint(pydantic.BaseModel):
 
 class Author(pydantic.BaseModel):
     pk: int
-    email: pydantic.EmailStr
+    email: str
     first_name: str
     middle_name: str | None = None
     last_name: str

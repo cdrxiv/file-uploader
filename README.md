@@ -1,11 +1,11 @@
 <p align='left'>
-  <a href='https://cdrxiv.org/'>
+  <a href='https://cdrxiv.org/#gh-light-mode-only'>
     <img
       src='https://avatars.githubusercontent.com/u/169473259?s=400&u=71ee6cf9499fb57b602af2c8467ad9a8f98a1042&v=4'
       height='48px'
     />
   </a>
-  <a href='https://cdrxiv.org/'>
+  <a href='https://cdrxiv.org/#gh-dark-mode-only'>
     <img
       src='https://avatars.githubusercontent.com/u/169473259?s=400&u=71ee6cf9499fb57b602af2c8467ad9a8f98a1042&v=4'
       height='48px'

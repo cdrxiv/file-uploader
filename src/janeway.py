@@ -1,9 +1,11 @@
+import traceback
 import typing
 
 import httpx
 import pydantic
 import pydantic.generics
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 
 from .config import Settings, get_settings
 from .log import get_logger
@@ -231,3 +233,25 @@ async def search_author(
             raise HTTPException(status_code=response.status_code, detail=error)
         author_data = response.json()
         return author_data
+
+
+@router.get('/janeway/pdf')
+async def get_pdf(
+    request: Request,
+    url: str,
+    settings: Settings = Depends(get_settings),
+):
+    logger.info(f'🚀 Getting pdf from {url}')
+    try:
+        async with httpx.AsyncClient(timeout=None) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            return StreamingResponse(
+                response.iter_bytes(), media_type='application/pdf', status_code=200
+            )
+    except httpx.HTTPStatusError as e:
+        logger.error(f'Failed to get pdf: {traceback.format_exc()}')
+        raise HTTPException(status_code=e.response.status_code, detail=str(e))
+    except Exception as e:
+        logger.error(f'Failed to get pdf: {traceback.format_exc()}')
+        raise HTTPException(status_code=500, detail=str(e))

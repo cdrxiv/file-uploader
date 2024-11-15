@@ -1,3 +1,5 @@
+import traceback
+
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from tenacity import (
@@ -15,19 +17,15 @@ logger = get_logger()
 router = APIRouter()
 
 
-def should_retry(exception):
-    return isinstance(
-        exception, (httpx.RemoteProtocolError, httpx.ReadTimeout, httpx.ConnectTimeout)
-    )
-
-
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=4, max=10),
-    retry=retry_if_exception_type(should_retry),
+    retry=retry_if_exception_type(
+        (httpx.RemoteProtocolError, httpx.ReadTimeout, httpx.ConnectTimeout)
+    ),
 )
-async def make_request(client, method, url, **kwargs):
-    response = await getattr(client, method)(url, **kwargs)
+def make_request(client, method, url, **kwargs):
+    response = getattr(client, method)(url, **kwargs)
     response.raise_for_status()
     return response
 
@@ -52,9 +50,9 @@ async def upload_file(
         )
 
     try:
-        async with httpx.AsyncClient(timeout=None) as client:
+        with httpx.Client(timeout=None) as client:
             # Fetch deposition
-            response = await make_request(
+            response = make_request(
                 client,
                 'get',
                 f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',
@@ -66,7 +64,7 @@ async def upload_file(
             # Upload file
             url = f'{bucket_url}/{file.filename}'
             file.file.seek(0)
-            upload_response = await make_request(
+            upload_response = make_request(
                 client,
                 'put',
                 url,
@@ -77,7 +75,7 @@ async def upload_file(
             logger.info(f'✅ Successfully uploaded {file.filename} to Zenodo.')
 
             # Fetch updated deposition data
-            resp = await make_request(
+            resp = make_request(
                 client,
                 'get',
                 f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',
@@ -88,22 +86,22 @@ async def upload_file(
 
     except httpx.HTTPStatusError as e:
         logger.error(
-            f'❌ HTTP error occurred: {e.response.status_code} - {e.response.text}'
+            f'❌ HTTP error occurred: {e.response.status_code} - {e.response.text}: {traceback.format_exc()}'
         )
         raise HTTPException(
             status_code=e.response.status_code,
             detail=f'🔥 Zenodo API error: {e.response.json().get("message", str(e))}',
         )
 
-    except (httpx.RemoteProtocolError, httpx.ReadTimeout, httpx.ConnectTimeout) as e:
-        logger.error(f'❌ Network error occurred: {str(e)}')
+    except (httpx.RemoteProtocolError, httpx.ReadTimeout, httpx.ConnectTimeout):
+        logger.error(f'❌ Network error occurred: {traceback.format_exc()}')
         raise HTTPException(
             status_code=503,
             detail='🌐 Network error: Unable to communicate with Zenodo. Please try again later.',
         )
 
     except Exception as e:
-        logger.error(f'❌ Unexpected error occurred: {str(e)}')
+        logger.error(f'❌ Unexpected error occurred: {traceback.format_exc()}')
         raise HTTPException(
             status_code=500,
             detail=f'💥 An unexpected error occurred: {str(e)}. Please contact support if the issue persists.',

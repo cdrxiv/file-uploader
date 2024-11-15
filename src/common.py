@@ -13,7 +13,7 @@ def check_user(request: Request):
 
     settings = get_settings()
     headers = {'Authorization': request.headers.get('Authorization')}
-    logger.info(f'Checking user with headers: {headers}')
+    logger.info('Checking user')
 
     # Check if the token is valid by making a request to Janeway
     with httpx.Client(timeout=None) as client:

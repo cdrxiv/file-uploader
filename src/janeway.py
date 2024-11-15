@@ -180,7 +180,6 @@ async def create_preprint(
     request: Request, user_id: int, settings: Settings = Depends(get_settings)
 ):
     headers = {'Authorization': request.headers.get('Authorization')}
-    logger.info(f'🚀 Janeway endpoint hit! {headers}')
     async with httpx.AsyncClient(timeout=None) as client:
         data = Preprint().model_dump()
         data['owner'] = user_id

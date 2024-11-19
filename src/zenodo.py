@@ -1,4 +1,6 @@
+import asyncio
 import traceback
+from concurrent.futures import ThreadPoolExecutor
 
 import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
@@ -17,6 +19,9 @@ logger = get_logger()
 router = APIRouter()
 
 
+executor = ThreadPoolExecutor(max_workers=2)
+
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=4, max=10),
@@ -24,8 +29,8 @@ router = APIRouter()
         (httpx.RemoteProtocolError, httpx.ReadTimeout, httpx.ConnectTimeout)
     ),
 )
-def make_request(client, method, url, **kwargs):
-    response = getattr(client, method)(url, **kwargs)
+def upload_file_sync(client, url, headers, file):
+    response = client.put(url, headers=headers, content=file.file)
     response.raise_for_status()
     return response
 
@@ -52,35 +57,52 @@ async def upload_file(
     try:
         with httpx.Client(timeout=None) as client:
             # Fetch deposition
-            response = make_request(
-                client,
-                'get',
+            response = client.get(
                 f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',
                 headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
             )
+            response.raise_for_status()
             deposition_data = response.json()
             bucket_url = deposition_data['links']['bucket']
 
-            # Upload file
+            # Upload file in a separate thread
             url = f'{bucket_url}/{file.filename}'
             file.file.seek(0)
-            upload_response = make_request(
+
+            loop = asyncio.get_event_loop()
+            upload_future = loop.run_in_executor(
+                executor,
+                upload_file_sync,
                 client,
-                'put',
                 url,
-                headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
-                content=file.file,
+                {'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
+                file,
             )
+
+            # Monitor for cancellation
+            while not upload_future.done():
+                await asyncio.sleep(1)
+                if await request.is_disconnected():
+                    logger.warning(
+                        '🚫 Request was cancelled due to client disconnection.'
+                    )
+                    # Cancel the future (though it may not stop immediately)
+                    upload_future.cancel()
+                    raise HTTPException(
+                        status_code=499,
+                        detail='Client Closed Request',
+                    )
+
+            upload_response = await upload_future
 
             logger.info(f'✅ Successfully uploaded {file.filename} to Zenodo.')
 
             # Fetch updated deposition data
-            resp = make_request(
-                client,
-                'get',
+            resp = client.get(
                 f'{settings.ZENODO_URL}/api/deposit/depositions/{deposition_id}',
                 headers={'Authorization': f'Bearer {settings.ZENODO_ACCESS_TOKEN}'},
             )
+            resp.raise_for_status()
             deposition_data = resp.json()
             return deposition_data
 

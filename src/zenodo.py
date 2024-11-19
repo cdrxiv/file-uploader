@@ -84,7 +84,7 @@ async def upload_file(
                 await asyncio.sleep(1)
                 if await request.is_disconnected():
                     logger.warning(
-                        '🚫 Request was cancelled due to client disconnection.'
+                        f'🚫 Request to upload {file.filename} to Zenodo was cancelled due to client disconnection.'
                     )
                     # Cancel the future (though it may not stop immediately)
                     upload_future.cancel()

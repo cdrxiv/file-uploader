@@ -18,6 +18,8 @@ memory = "2048mb"
 [env]
 PORT = "8000"
 TMPDIR = "/data"
+ZENODO_URL = "https://zenodo.org"
+JANEWAY_URL = 'https://janeway.cdrxiv.org'
 
 [mounts]
 source = "cdrxiv_file_uploader"

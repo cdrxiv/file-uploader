@@ -18,6 +18,8 @@ memory = "2048mb"
 [env]
 PORT = "8000"
 TMPDIR = "/data"
+ZENODO_URL = "https://sandbox.zenodo.org"
+JANEWAY_URL = 'https://carbonplan.endurance.janeway.systems/cdrxiv-staging'
 
 [mounts]
 source = "cdrxiv_file_uploader_staging"

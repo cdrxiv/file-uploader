@@ -7,7 +7,7 @@ primary_region = "dfw"
 
 [build]
 builder = "heroku/builder:24"
-buildpacks = ["heroku/buildpack-python:0.19.1"]
+buildpacks = ["heroku/buildpack-python:0.19.1", "heroku/buildpack-nodejs:3.3.3"]
 
 
 [[vm]]

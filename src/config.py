@@ -1,3 +1,6 @@
+import os
+import pathlib
+
 import pydantic_settings
 
 from .log import get_logger
@@ -37,6 +40,13 @@ def format_bytes(num: int) -> str:
     )
 
 
+def latex_source_directory():
+    directory = pathlib.Path(os.environ.get('TMPDIR', '')).resolve()
+    directory = directory / 'myst-latex-sources'
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
 class Settings(pydantic_settings.BaseSettings):
     model_config = pydantic_settings.SettingsConfigDict(
         env_file=('.env', '.env.prod', '.env.local'), extra='ignore'
@@ -45,6 +55,7 @@ class Settings(pydantic_settings.BaseSettings):
     ZENODO_ACCESS_TOKEN: str | None
     ZENODO_MAX_FILE_SIZE: int = 15 * 1024 * 1024 * 1024
     JANEWAY_URL: str | None
+    LATEX_SOURCE_DIRECTORY: pathlib.Path = latex_source_directory()
 
 
 def get_settings() -> Settings:

@@ -4,14 +4,23 @@ import os
 import tempfile
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, staticfiles
 from fastapi.middleware.cors import CORSMiddleware
 
+from .config import latex_source_directory
+from .latex import router as latex_router
 from .log import get_logger
 from .zenodo import router as zenodo_router
 
 origins = ['*']
 logger = get_logger()
+
+
+directory = latex_source_directory()
+directory.mkdir(parents=True, exist_ok=True)
+logger.info(
+    f'Resolved directory: {directory} | {directory.exists()} | {list(directory.iterdir())}'
+)
 
 
 @asynccontextmanager
@@ -39,6 +48,12 @@ def create_application() -> FastAPI:
         allow_headers=['*'],
     )
     app.include_router(zenodo_router, tags=['zenodo'])
+    app.include_router(latex_router, tags=['latex'])
+    app.mount(
+        '/myst',
+        staticfiles.StaticFiles(directory=directory, html=True),
+        name='myst',
+    )
     return app
 
 

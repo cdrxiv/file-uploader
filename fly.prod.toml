@@ -1,62 +1,60 @@
-app = "cdrxiv-file-uploader"
-kill_signal = "SIGINT"
+app          = "cdrxiv-file-uploader"
+kill_signal  = "SIGINT"
 kill_timeout = 5
 
 primary_region = "dfw"
 
-
 [build]
-builder = "heroku/builder:24"
-buildpacks = ["heroku/buildpack-python:0.19.1", "heroku/buildpack-nodejs:3.3.3"]
-
+    builder = "heroku/builder:24"
+    buildpacks = [
+        "heroku/buildpack-nodejs:3.3.3",
+        "heroku/buildpack-python:0.19.1",
+    ]
 
 [[vm]]
-size = "shared-cpu-4x"
-memory = "2048mb"
-
+    memory = "2048mb"
+    size   = "shared-cpu-4x"
 
 [env]
-PORT = "8000"
-TMPDIR = "/data"
-ZENODO_URL = "https://zenodo.org"
-JANEWAY_URL = 'https://janeway.cdrxiv.org'
+    JANEWAY_URL = 'https://janeway.cdrxiv.org'
+    PORT        = "8000"
+    TMPDIR      = "/data"
+    ZENODO_URL  = "https://zenodo.org"
 
 [mounts]
-source = "cdrxiv_file_uploader"
-destination = "/data"
-
+    destination = "/data"
+    source      = "cdrxiv_file_uploader"
 
 [processes]
-app = "gunicorn -w 2 -k uvicorn.workers.UvicornWorker -t 1800 src.main:app"
+    app = "gunicorn -w 2 -k uvicorn.workers.UvicornWorker -t 1800 src.main:app"
 
 [[services]]
-processes = ["app"]
-protocol = "tcp"
-internal_port = 8000
-force_https = true
-auto_stop_machines = true
-auto_start_machines = true
-min_machines_running = 1
+    auto_start_machines  = true
+    auto_stop_machines   = true
+    force_https          = true
+    internal_port        = 8000
+    min_machines_running = 1
+    processes            = ["app"]
+    protocol             = "tcp"
 
 [[services.ports]]
-port = 80
-handlers = ["http"]
+    handlers = ["http"]
+    port     = 80
 
 [[services.ports]]
-port = 443
-handlers = ["tls", "http"]
+    handlers = ["http", "tls"]
+    port     = 443
 [services.concurrency]
-type = "connections"
-
+    type = "connections"
 
 [[services.tcp_checks]]
-interval = "15s"
-timeout = "3s"
-grace_period = "5s"
-restart_limit = 0
+    grace_period  = "5s"
+    interval      = "15s"
+    restart_limit = 0
+    timeout       = "3s"
 
 [[services.http_checks]]
-path = "/health"
-grace_period = "30s"
-interval = "1m"
-timeout = "15s"
+    grace_period = "30s"
+    interval     = "1m"
+    path         = "/health"
+    timeout      = "15s"

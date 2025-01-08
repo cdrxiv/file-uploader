@@ -18,7 +18,7 @@
 A minimal file uploader service built with FastAPI. Currently, this service has two main endpoints:
 
 - `/zenodo/upload-file`: used to upload files to Zenodo
-- `/myst/upload-file`: used to upload latex source files
+- `/latex/upload-file`: used to upload latex source files
 
 [![Fly.io Deployment](https://github.com/cdrxiv/file-uploader/actions/workflows/fly.yml/badge.svg)](https://github.com/cdrxiv/file-uploader/actions/workflows/fly.yml)
 
